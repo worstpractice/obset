@@ -1,0 +1,51 @@
+{
+  "author": "worstpractice",
+  "bugs": {
+    "url": "https://github.com/worstpractice/obset/issues"
+  },
+  "description": "An observable set",
+  "devDependencies": {
+    "@types/node": "12.20.19",
+    "@typescript-eslint/eslint-plugin": "4.29.1",
+    "@typescript-eslint/parser": "4.29.1",
+    "eslint": "7.32.0",
+    "eslint-plugin-unicorn": "35.0.0",
+    "pnpm": "6.13.0",
+    "prettier": "2.3.2",
+    "tslib": "2.3.1",
+    "typescript": "4.5.0-dev.20210814"
+  },
+  "engines": {
+    "node": "^12.20.0 || ^14.13.1 || >=16.0.0"
+  },
+  "exports": "./dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "homepage": "https://github.com/worstpractice/obset#readme",
+  "keywords": [
+    "event",
+    "listener",
+    "observable",
+    "observer",
+    "set",
+    "subscriber"
+  ],
+  "license": "MIT",
+  "name": "obset",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/worstpractice/obset.git"
+  },
+  "scripts": {
+    "build": "node ./nuke.mjs && tsc",
+    "fmt": "prettier -u --config .prettierrc -w ./src/**/*.{d.ts,ts}",
+    "lint": "eslint ./src --ext .d.ts,.ts",
+    "lint:fix": "eslint ./src --ext .d.ts,.ts --fix",
+    "prepare": "pnpm run build",
+    "tidy": "pnpm run lint:fix && pnpm run fmt"
+  },
+  "type": "module",
+  "types": "dist/typings/index.d.ts",
+  "version": "1.0.0"
+}

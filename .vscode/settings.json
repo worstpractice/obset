@@ -1,0 +1,9 @@
+{
+  "eslint.packageManager": "pnpm",
+  "javascript.preferences.importModuleSpecifier": "relative",
+  "javascript.preferences.importModuleSpecifierEnding": "js",
+  "npm.packageManager": "pnpm",
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.preferences.importModuleSpecifierEnding": "js",
+  "typescript.tsserver.experimental.enableProjectDiagnostics": false
+}
