@@ -46,6 +46,6 @@
     "tidy": "pnpm run lint:fix && pnpm run fmt"
   },
   "type": "module",
-  "types": "dist/typings/index.d.ts",
-  "version": "1.0.0"
+  "types": "dist/index.d.ts",
+  "version": "1.0.1"
 }
