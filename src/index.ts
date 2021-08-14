@@ -73,7 +73,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     if (!initialValues) return this;
 
     for (const value of initialValues) {
-      super.add(value);
+      this.add(value);
     }
   }
 
@@ -105,17 +105,9 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
   }
 
   override clear(this: this): this {
-    for (const operation of Object.keys(this.onAnyHandlers)) {
-      this.onAnyHandlers[operation].clear();
+    for (const value of this) {
+      this.delete(value);
     }
-
-    this.onEmptyHandlers.clear();
-
-    this.onValueHandlers.clear();
-
-    this.toBeRanOnlyOnce.length = 0;
-
-    super.clear();
 
     return this;
   }
