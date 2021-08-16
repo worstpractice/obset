@@ -230,6 +230,22 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     this.valueListeners.delete(value);
   }
 
+  hasAllOf(this: this, ...values: readonly T[]): boolean {
+    for (const value of values) {
+      if (!this.has(value)) return false;
+    }
+
+    return true;
+  }
+
+  hasAnyOf(this: this, ...values: readonly T[]): boolean {
+    for (const value of values) {
+      if (this.has(value)) return true;
+    }
+
+    return false;
+  }
+
   private initEventListenersFor(this: this, operation: SetOperation, operationListeners: MaybeListeners<T>): Set<SetEventListener<T>> {
     const eventListeners = new Set<SetEventListener<T>>();
 
