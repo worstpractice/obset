@@ -114,21 +114,21 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
   clone(this: this): ObSet<T> {
     const clone: ObSet<T> = new ObSet<T>(this, this.options);
 
-    // Copy anyHandlers
+    // Copy operationListeners
     for (const operation of SET_OPERATIONS) {
-      for (const handler of this.operationListeners[operation]) {
-        clone.operationListeners[operation].add(handler);
+      for (const listener of this.operationListeners[operation]) {
+        clone.operationListeners[operation].add(listener);
       }
     }
 
-    // Copy valueHandlers
-    for (const [value, handler] of this.valueListeners) {
-      clone.valueListeners.set(value, handler);
+    // Copy valueListeners
+    for (const [value, listener] of this.valueListeners) {
+      clone.valueListeners.set(value, listener);
     }
 
-    // Copy one-off handlers
-    for (const handler of this.oneTimeListeners) {
-      clone.oneTimeListeners.push(handler);
+    // Copy oneTimeListeners
+    for (const listener of this.oneTimeListeners) {
+      clone.oneTimeListeners.push(listener);
     }
 
     return clone;
