@@ -26,7 +26,6 @@ export interface SetEventTarget<T> {
 // prettier-ignore
 export type SetOperation =
   | "add"
-  | "clear"
   | "delete"
   | "empty"
 ;
@@ -56,7 +55,6 @@ type WarnIfMissingKey = {
 
 const warnIfMissingKey: WarnIfMissingKey = {
   add: undefined,
-  clear: undefined,
   delete: undefined,
   empty: undefined,
 } as const;
@@ -66,7 +64,6 @@ const SET_OPERATIONS = Object.keys(warnIfMissingKey);
 export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
   private readonly operationListeners: Listeners<T> = {
     add: new Set<SetEventListener<T>>(),
-    clear: new Set<SetEventListener<T>>(),
     delete: new Set<SetEventListener<T>>(),
     empty: new Set<SetEventListener<T>>(),
   } as const;
