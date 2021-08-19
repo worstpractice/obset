@@ -3,6 +3,14 @@ import { swapPop } from 'swappop';
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Interface *
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+export type Listeners<T> = {
+  readonly [key in SetOperation]: Set<SetEventListener<T>>;
+};
+
+export type MaybeListeners<T> = {
+  [key in SetOperation]?: Set<SetEventListener<T>>;
+};
+
 export type ObSetOptions = {
   readonly freeUnusedResources: boolean;
 };
@@ -29,14 +37,6 @@ export type SetOperation =
   | "delete"
   | "empty"
 ;
-
-export type Listeners<T> = {
-  readonly [key in SetOperation]: Set<SetEventListener<T>>;
-};
-
-export type MaybeListeners<T> = {
-  [key in SetOperation]?: Set<SetEventListener<T>>;
-};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Implementation *
@@ -330,8 +330,8 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
   once(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: SetEventListenerOptions): this;
   once(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | SetEventListenerOptions, maybeOptions?: SetEventListenerOptions): this {
     return maybeOptions || typeof optionsOrListener === 'function'
-      ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, maybeOptions ? { ...maybeOptions, ...ONCE } : ONCE)
-      : this.onOperation(operation, valueOrListener as SetEventListener<T>, optionsOrListener ? { ...optionsOrListener, ...ONCE } : ONCE);
+      ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, { ...maybeOptions, ...ONCE })
+      : this.onOperation(operation, valueOrListener as SetEventListener<T>, { ...optionsOrListener, ...ONCE });
   }
 
   removeEventListener(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>): this {
