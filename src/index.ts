@@ -1,4 +1,5 @@
 import { swapPop } from 'swappop';
+import { unreachable } from './utils/unreachable.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Interface *
@@ -41,7 +42,7 @@ export type MaybeListeners<T> = {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Implementation *
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const ONCE = {
+const ONCE: SetEventListenerOptions = {
   once: true,
 } as const;
 
@@ -101,7 +102,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
   }
 
   /** NOTE: syntactic sugar. */
-  addEventListener = this.onValue;
+  addEventListener = this.on;
 
   override clear(this: this): this {
     for (const value of this) {
@@ -112,7 +113,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
   }
 
   clone(this: this): ObSet<T> {
-    const clone: ObSet<T> = new ObSet<T>(this, this.options);
+    const clone = new ObSet<T>(this, this.options);
 
     // Copy operationListeners
     for (const operation of SET_OPERATIONS) {
@@ -147,15 +148,15 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
 
     this.dispatchEvent(event);
 
-    if (!this.size) {
-      const setEvent: SetEvent<T> = {
-        operation: 'empty',
-        value: event.value,
-      } as const;
+    if (this.size) return this;
 
-      for (const listener of this.operationListeners.empty) {
-        listener.call(this, setEvent);
-      }
+    const setEvent: SetEvent<T> = {
+      operation: 'empty',
+      value: event.value,
+    } as const;
+
+    for (const listener of this.operationListeners.empty) {
+      listener(setEvent);
     }
 
     return this;
@@ -175,7 +176,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     const anyListeners = this.operationListeners[operation];
 
     for (const listener of anyListeners) {
-      listener.call(this, event);
+      listener(event);
 
       if (!this.oneTimeListeners.includes(listener)) continue;
 
@@ -188,7 +189,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     if (!eventListeners) return this;
 
     for (const listener of eventListeners) {
-      listener.call(this, event);
+      listener(event);
 
       if (!this.oneTimeListeners.includes(listener)) continue;
 
@@ -197,6 +198,30 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     }
 
     return this;
+  }
+
+  every(this: this, test: (this: void, value: T, index: number, set: this) => boolean): boolean {
+    let i = 0;
+
+    for (const value of this) {
+      if (!test(value, i++, this)) return false;
+    }
+
+    return true;
+  }
+
+  filter(this: this, test: (this: void, value: T, index: number, set: this) => boolean): readonly T[] {
+    const filtered: T[] = [];
+
+    let i = 0;
+
+    for (const value of this) {
+      if (!test(value, i++, this)) continue;
+
+      filtered.push(value);
+    }
+
+    return filtered;
   }
 
   private findOperationsWithoutListenersIn(this: this, operationListeners: MaybeListeners<T>): readonly SetOperation[] {
@@ -230,7 +255,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     this.valueListeners.delete(value);
   }
 
-  hasAllOf(this: this, ...values: readonly T[]): boolean {
+  hasEvery(this: this, ...values: readonly T[]): boolean {
     for (const value of values) {
       if (!this.has(value)) return false;
     }
@@ -238,7 +263,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return true;
   }
 
-  hasAnyOf(this: this, ...values: readonly T[]): boolean {
+  hasSome(this: this, ...values: readonly T[]): boolean {
     for (const value of values) {
       if (this.has(value)) return true;
     }
@@ -260,6 +285,18 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     this.valueListeners.set(value, operationListeners);
 
     return operationListeners;
+  }
+
+  map<U extends (this: void, value: T, index: number, set: this) => any>(this: this, into: U): readonly ReturnType<U>[] {
+    const mapped: ReturnType<U>[] = [];
+
+    let i = 0;
+
+    for (const value of this) {
+      mapped.push(into(value, i++, this));
+    }
+
+    return mapped;
   }
 
   on(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: SetEventListenerOptions): this;
@@ -297,7 +334,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
       }
 
       default: {
-        return this.unreachable(args.length);
+        return unreachable(args.length);
       }
     }
   }
@@ -366,7 +403,13 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return this;
   }
 
-  private unreachable(length: never): never {
-    throw new RangeError(length);
+  some(this: this, test: (this: void, value: T, index: number, set: this) => boolean): boolean {
+    let i = 0;
+
+    for (const value of this) {
+      if (test(value, i++, this)) return true;
+    }
+
+    return false;
   }
 }
