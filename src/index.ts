@@ -62,6 +62,10 @@ const warnIfMissingKey: WarnIfMissingKey = {
 const SET_OPERATIONS = Object.keys(warnIfMissingKey);
 
 export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
+  private readonly oneTimeListeners: SetEventListener<T>[] = [];
+
+  private readonly options: ObSetOptions;
+
   private readonly operationListeners: Listeners<T> = {
     add: new Set<SetEventListener<T>>(),
     delete: new Set<SetEventListener<T>>(),
@@ -69,10 +73,6 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
   } as const;
 
   private readonly valueListeners: Map<T, MaybeListeners<T>> = new Map<T, MaybeListeners<T>>();
-
-  private readonly options: ObSetOptions;
-
-  private readonly oneTimeListeners: SetEventListener<T>[] = [];
 
   constructor(initialValues?: Iterable<T>, options?: ObSetOptions) {
     super();
