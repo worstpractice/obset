@@ -1,3 +1,4 @@
+import type { WarnIfMissing } from './typings/warnIfMissing.js';
 import { swapPop } from 'swappop';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -22,9 +23,11 @@ export type SetEvent<T> = {
 
 export type SetEventListener<T> = (event: SetEvent<T>) => void;
 
-export type SetEventListenerOptions = {
+export type OnOptions = {
   readonly once?: boolean;
 };
+
+export type OnceOptions = Omit<OnOptions, 'once'>;
 
 export interface SetEventTarget<T> {
   readonly addEventListener: (this: this, type: SetOperation, value: T, listener: SetEventListener<T>) => this;
@@ -41,7 +44,7 @@ export type SetOperation =
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Implementation *
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const ONCE: SetEventListenerOptions = {
+const ONCE: OnOptions = {
   once: true,
 } as const;
 
@@ -49,11 +52,7 @@ const DEFAULT_OPTIONS: ObSetOptions = {
   freeUnusedResources: true,
 } as const;
 
-type WarnIfMissingKey = {
-  readonly [key in SetOperation]: undefined;
-};
-
-const warnIfMissingKey: WarnIfMissingKey = {
+const warnIfMissingKey: WarnIfMissing<SetOperation> = {
   add: undefined,
   delete: undefined,
   empty: undefined,
@@ -161,12 +160,14 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return this;
   }
 
-  private deleteOneTimeListener(this: this, listener: SetEventListener<T> | SetEventListener<T>): void {
+  private deleteOneTimeListener(this: this, listener: SetEventListener<T> | SetEventListener<T>): this {
     const listenerIndex = this.oneTimeListeners.indexOf(listener);
 
-    if (listenerIndex === -1) return;
+    if (listenerIndex !== -1) {
+      swapPop(this.oneTimeListeners, listenerIndex);
+    }
 
-    swapPop(this.oneTimeListeners, listenerIndex);
+    return this;
   }
 
   private dispatchEvent(this: this, event: SetEvent<T>): this {
@@ -215,9 +216,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     let i = 0;
 
     for (const value of this) {
-      if (!test(value, i++, this)) continue;
-
-      filtered.push(value);
+      if (test(value, i++, this)) filtered.push(value);
     }
 
     return filtered;
@@ -298,15 +297,23 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return mapped;
   }
 
-  on(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: SetEventListenerOptions): this;
-  on(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: SetEventListenerOptions): this;
-  on(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | SetEventListenerOptions, maybeOptions?: SetEventListenerOptions): this {
+  on(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnOptions): this;
+  on(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: OnOptions): this;
+  on(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | OnOptions, maybeOptions?: OnOptions): this {
     return maybeOptions || typeof optionsOrListener === 'function'
       ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, maybeOptions)
       : this.onOperation(operation, valueOrListener as SetEventListener<T>, optionsOrListener);
   }
 
-  private onOperation(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: SetEventListenerOptions): this {
+  once(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnceOptions): this;
+  once(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: OnceOptions): this;
+  once(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | OnceOptions, maybeOptions?: OnceOptions): this {
+    return maybeOptions || typeof optionsOrListener === 'function'
+      ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, { ...maybeOptions, ...ONCE })
+      : this.onOperation(operation, valueOrListener as SetEventListener<T>, { ...optionsOrListener, ...ONCE });
+  }
+
+  private onOperation(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnOptions): this {
     this.operationListeners[operation].add(listener);
 
     if (options?.once) this.oneTimeListeners.push(listener);
@@ -314,7 +321,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return this;
   }
 
-  private onValue(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: SetEventListenerOptions): this {
+  private onValue(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: OnOptions): this {
     const operationListeners = this.valueListeners.get(value) ?? this.initOperationListenersFor(value);
 
     const eventListeners = operationListeners[operation] ?? this.initEventListenersFor(operation, operationListeners);
@@ -324,14 +331,6 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     if (options?.once) this.oneTimeListeners.push(listener);
 
     return this;
-  }
-
-  once(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: SetEventListenerOptions): this;
-  once(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: SetEventListenerOptions): this;
-  once(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | SetEventListenerOptions, maybeOptions?: SetEventListenerOptions): this {
-    return maybeOptions || typeof optionsOrListener === 'function'
-      ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, { ...maybeOptions, ...ONCE })
-      : this.onOperation(operation, valueOrListener as SetEventListener<T>, { ...optionsOrListener, ...ONCE });
   }
 
   removeEventListener(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>): this {
