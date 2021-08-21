@@ -7,7 +7,7 @@ const getProjectRoot = () => {
   return globalThis.__dirname || dirname(fileURLToPath(import.meta.url));
 };
 
-const nuke = async () => {
+const clean = async () => {
   // @ts-ignore we know, node 12. we know.
   const rm = promises.rm || promises.rmdir;
 
@@ -16,4 +16,4 @@ const nuke = async () => {
 
 const noOp = () => {};
 
-void nuke().catch(noOp);
+void clean().catch(noOp);
