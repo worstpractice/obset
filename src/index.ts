@@ -1,5 +1,5 @@
-import type { WarnIfMissing } from './typings/warnIfMissing.js';
 import { swapPop } from 'swappop';
+import { every } from './utils/every';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Interface *
@@ -21,7 +21,7 @@ export type SetEvent<T> = {
   readonly value: T;
 };
 
-export type SetEventListener<T> = (event: SetEvent<T>) => void;
+export type SetEventListener<T> = (this: void, event: SetEvent<T>) => void;
 
 export type OnOptions = {
   readonly once?: boolean;
@@ -42,7 +42,7 @@ export type SetOperation =
 ;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// * Implementation *
+// * Scoped Globals *
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const ONCE: OnOptions = {
   once: true,
@@ -52,13 +52,15 @@ const DEFAULT_OPTIONS: ObSetOptions = {
   freeUnusedResources: true,
 } as const;
 
-const warnIfMissingKey: WarnIfMissing<SetOperation> = {
-  add: undefined,
-  delete: undefined,
-  empty: undefined,
-} as const;
+const SET_OPERATIONS = every<SetOperation>({
+  add: '',
+  delete: '',
+  empty: '',
+});
 
-const SET_OPERATIONS = Object.keys(warnIfMissingKey);
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// * Implementation *
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
   private readonly oneTimeListeners: SetEventListener<T>[] = [];
@@ -200,23 +202,25 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return this;
   }
 
-  every(this: this, test: (this: void, value: T, index: number, set: this) => boolean): boolean {
+  every(this: this, predicate: (this: void, value: T, index: number, set: this) => boolean): boolean {
     let i = 0;
 
     for (const value of this) {
-      if (!test(value, i++, this)) return false;
+      if (!predicate(value, i++, this)) return false;
     }
 
     return true;
   }
 
-  filter(this: this, test: (this: void, value: T, index: number, set: this) => boolean): readonly T[] {
+  filter<U extends T>(this: this, predicate: (this: void, value: T, index: number, set: this) => value is U): readonly U[];
+  filter(this: this, predicate: (this: void, value: T, index: number, set: this) => boolean): readonly T[];
+  filter<U extends T>(this: this, predicate: (this: void, value: T, index: number, set: this) => boolean): readonly T[] | readonly U[] {
     const filtered: T[] = [];
 
     let i = 0;
 
     for (const value of this) {
-      if (test(value, i++, this)) filtered.push(value);
+      if (predicate(value, i++, this)) filtered.push(value);
     }
 
     return filtered;
@@ -350,11 +354,11 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return this;
   }
 
-  some(this: this, test: (this: void, value: T, index: number, set: this) => boolean): boolean {
+  some(this: this, predicate: (this: void, value: T, index: number, set: this) => boolean): boolean {
     let i = 0;
 
     for (const value of this) {
-      if (test(value, i++, this)) return true;
+      if (predicate(value, i++, this)) return true;
     }
 
     return false;

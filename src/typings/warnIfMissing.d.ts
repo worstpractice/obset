@@ -1,3 +1,3 @@
 export type WarnIfMissing<T extends PropertyKey> = {
-  readonly [key in T]: undefined;
+  readonly [key in T]: any;
 };
