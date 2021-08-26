@@ -363,4 +363,8 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
 
     return false;
   }
+
+  xor(this: this, a: T, b: T): boolean {
+    return this.has(a) !== this.has(b);
+  }
 }
