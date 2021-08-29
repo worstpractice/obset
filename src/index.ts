@@ -4,6 +4,8 @@ import { every } from './utils/every';
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Interface *
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+export type From<T> = (this: void, value: T, index: number, obset: ObSet<T>) => any;
+
 export type Listeners<T> = {
   readonly [key in SetOperation]: Set<SetEventListener<T>>;
 };
@@ -16,18 +18,20 @@ export type ObSetOptions = {
   readonly freeUnusedResources: boolean;
 };
 
-export type SetEvent<T> = {
-  readonly operation: SetOperation;
-  readonly value: T;
-};
-
-export type SetEventListener<T> = (this: void, event: SetEvent<T>) => void;
+export type OnceOptions = Omit<OnOptions, 'once'>;
 
 export type OnOptions = {
   readonly once?: boolean;
 };
 
-export type OnceOptions = Omit<OnOptions, 'once'>;
+export type Predicate<T> = (this: void, value: T, index: number, obset: ObSet<T>) => boolean;
+
+export type SetEvent<T> = {
+  readonly operation: SetOperation;
+  readonly value: T;
+};
+
+export type SetEventListener<T> = (this: void, event: SetEvent<T>, obset: ObSet<T>) => void;
 
 export interface SetEventTarget<T> {
   readonly addEventListener: (this: this, type: SetOperation, value: T, listener: SetEventListener<T>) => this;
@@ -101,7 +105,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return this;
   }
 
-  /** NOTE: syntactic sugar. */
+  /** NOTE: maximizes compatibility. */
   addEventListener = this.on;
 
   override clear(this: this): this {
@@ -156,7 +160,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     } as const;
 
     for (const listener of this.operationListeners.empty) {
-      listener(setEvent);
+      listener(setEvent, this);
     }
 
     return this;
@@ -178,7 +182,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     const anyListeners = this.operationListeners[operation];
 
     for (const listener of anyListeners) {
-      listener(event);
+      listener(event, this);
 
       if (!this.oneTimeListeners.includes(listener)) continue;
 
@@ -191,7 +195,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     if (!eventListeners) return this;
 
     for (const listener of eventListeners) {
-      listener(event);
+      listener(event, this);
 
       if (!this.oneTimeListeners.includes(listener)) continue;
 
@@ -289,8 +293,8 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return operationListeners;
   }
 
-  map<U extends (this: void, value: T, index: number, set: this) => any>(this: this, into: U): readonly ReturnType<U>[] {
-    const mapped: ReturnType<U>[] = [];
+  map<U extends From<T>, V extends ReturnType<U>>(this: this, into: U): readonly V[] {
+    const mapped: V[] = [];
 
     let i = 0;
 
@@ -303,17 +307,17 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
 
   on(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnOptions): this;
   on(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: OnOptions): this;
-  on(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | OnOptions, maybeOptions?: OnOptions): this {
-    return maybeOptions || typeof optionsOrListener === 'function'
-      ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, maybeOptions)
+  on(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | OnOptions, options?: OnOptions): this {
+    return options ?? typeof optionsOrListener === 'function'
+      ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, options)
       : this.onOperation(operation, valueOrListener as SetEventListener<T>, optionsOrListener);
   }
 
   once(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnceOptions): this;
   once(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: OnceOptions): this;
-  once(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | OnceOptions, maybeOptions?: OnceOptions): this {
-    return maybeOptions || typeof optionsOrListener === 'function'
-      ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, { ...maybeOptions, ...ONCE })
+  once(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | OnceOptions, options?: OnceOptions): this {
+    return options ?? typeof optionsOrListener === 'function'
+      ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, { ...options, ...ONCE })
       : this.onOperation(operation, valueOrListener as SetEventListener<T>, { ...optionsOrListener, ...ONCE });
   }
 
@@ -354,7 +358,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return this;
   }
 
-  some(this: this, predicate: (this: void, value: T, index: number, set: this) => boolean): boolean {
+  some(this: this, predicate: Predicate<T>): boolean {
     let i = 0;
 
     for (const value of this) {
