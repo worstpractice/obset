@@ -305,20 +305,32 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return mapped;
   }
 
-  on(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnOptions): this;
-  on(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: OnOptions): this;
-  on(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | OnOptions, options?: OnOptions): this {
-    return options ?? typeof optionsOrListener === 'function'
-      ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, options)
-      : this.onOperation(operation, valueOrListener as SetEventListener<T>, optionsOrListener);
+  on(this: this, operationOrOperations: SetOperation | readonly SetOperation[], listener: SetEventListener<T>, options?: OnOptions): this;
+  on(this: this, operationOrOperations: SetOperation | readonly SetOperation[], value: T, listener: SetEventListener<T>, options?: OnOptions): this;
+  on(this: this, operationOrOperations: SetOperation | readonly SetOperation[], valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | OnOptions, options?: OnOptions): this {
+    const operations = Array.isArray(operationOrOperations) ? operationOrOperations : [operationOrOperations];
+
+    for (const operation of operations) {
+      options ?? typeof optionsOrListener === 'function'
+        ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, options)
+        : this.onOperation(operation, valueOrListener as SetEventListener<T>, optionsOrListener);
+    }
+
+    return this;
   }
 
-  once(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnceOptions): this;
-  once(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: OnceOptions): this;
-  once(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | OnceOptions, options?: OnceOptions): this {
-    return options ?? typeof optionsOrListener === 'function'
-      ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, { ...options, ...ONCE })
-      : this.onOperation(operation, valueOrListener as SetEventListener<T>, { ...optionsOrListener, ...ONCE });
+  once(this: this, operationOrOperations: SetOperation | readonly SetOperation[], listener: SetEventListener<T>, options?: OnceOptions): this;
+  once(this: this, operationOrOperations: SetOperation | readonly SetOperation[], value: T, listener: SetEventListener<T>, options?: OnceOptions): this;
+  once(this: this, operationOrOperations: SetOperation | readonly SetOperation[], valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | OnceOptions, options?: OnceOptions): this {
+    const operations = Array.isArray(operationOrOperations) ? operationOrOperations : [operationOrOperations];
+
+    for (const operation of operations) {
+      options ?? typeof optionsOrListener === 'function'
+        ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, { ...options, ...ONCE })
+        : this.onOperation(operation, valueOrListener as SetEventListener<T>, { ...optionsOrListener, ...ONCE });
+    }
+
+    return this;
   }
 
   private onOperation(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnOptions): this {
