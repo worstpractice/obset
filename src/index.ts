@@ -101,7 +101,6 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return this;
   }
 
-  /** NOTE: maximizes compatibility. */
   addEventListener = this.on;
 
   override clear(this: this): this {
@@ -115,19 +114,16 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
   clone(this: this): ObSet<T> {
     const clone = new ObSet<T>(this, this.options);
 
-    // Copy operationListeners
     for (const operation of SET_OPERATIONS) {
       for (const listener of this.operationListeners[operation]) {
         clone.operationListeners[operation].add(listener);
       }
     }
 
-    // Copy valueListeners
     for (const [value, listener] of this.valueListeners) {
       clone.valueListeners.set(value, listener);
     }
 
-    // Copy oneTimeListeners
     for (const listener of this.oneTimeListeners) {
       clone.oneTimeListeners.push(listener);
     }
