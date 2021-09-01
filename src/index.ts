@@ -1,6 +1,7 @@
 import { swapPop } from 'swappop';
 import { every } from './utils/every.js';
 import { isEmpty } from './utils/isEmpty.js';
+import { unreachable } from './utils/unreachable.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Interface *
@@ -16,8 +17,17 @@ export type MaybeListeners<T> = {
 };
 
 export type ObSetOptions = {
-  readonly freeUnusedResources: boolean;
-};
+  readonly freeUnusedResources?: boolean;
+} & (
+  | {
+      readonly capacity: number;
+      readonly replacementPolicy: ReplacementPolicy;
+    }
+  | {
+      readonly capacity?: never;
+      readonly replacementPolicy?: never;
+    }
+);
 
 export type OnceOptions = Omit<OnOptions, 'once'>;
 
@@ -27,12 +37,13 @@ export type OnOptions = {
 
 export type Predicate<T> = (this: void, value: T, index: number, obset: ObSet<T>) => boolean;
 
-export type SetEvent<T> = {
-  readonly operation: SetOperation;
-  readonly value: T;
-};
+// prettier-ignore
+export type ReplacementPolicy =
+  | 'FIFO'
+  | 'LIFO'
+;
 
-export type SetEventListener<T> = (this: void, event: SetEvent<T>, obset: ObSet<T>) => void;
+export type SetEventListener<T> = (this: void, value: T, operation: SetOperation, obset: ObSet<T>) => void;
 
 export interface SetEventTarget<T> {
   readonly addEventListener: (this: this, type: SetOperation, value: T, listener: SetEventListener<T>) => this;
@@ -41,65 +52,118 @@ export interface SetEventTarget<T> {
 
 // prettier-ignore
 export type SetOperation =
-  | "add"
-  | "delete"
-  | "empty"
+  | 'add'
+  | 'delete'
+  | 'empty'
+  | 'full'
 ;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Scoped Globals *
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 const DEFAULT_OPTIONS: ObSetOptions = {
+  capacity: 0,
   freeUnusedResources: true,
+  replacementPolicy: 'FIFO',
 } as const;
 
 const SET_OPERATIONS = every<SetOperation>({
   add: '',
   delete: '',
   empty: '',
+  full: '',
 });
+
+const NONE: unique symbol = Symbol('none');
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Implementation *
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
+  private leastRecentlyAdded?: T;
+
+  private mostRecentlyAdded?: T;
+
   private readonly oneTimeListeners: SetEventListener<T>[] = [];
 
-  private readonly options: ObSetOptions;
+  private readonly options: ObSetOptions = DEFAULT_OPTIONS;
 
   private readonly operationListeners: Listeners<T> = {
     add: new Set<SetEventListener<T>>(),
     delete: new Set<SetEventListener<T>>(),
     empty: new Set<SetEventListener<T>>(),
+    full: new Set<SetEventListener<T>>(),
   } as const;
 
   private readonly valueListeners: Map<T, MaybeListeners<T>> = new Map<T, MaybeListeners<T>>();
 
+  get isFull(): boolean {
+    if (this.isEmpty) return false;
+
+    const { capacity = 0 } = this.options;
+
+    if (!capacity) return false;
+
+    return this.size < capacity;
+  }
+
+  get isEmpty(): boolean {
+    return !this.size;
+  }
+
   constructor(initialValues?: Iterable<T>, options?: ObSetOptions) {
-    super();
-    this.options = options ?? DEFAULT_OPTIONS;
+    super(); /** NOTE: passing `initialValues` directly to `super()` results in an infinite loop. (＃°Д°) */
 
-    if (!initialValues) return this;
+    if (options) {
+      this.options = options;
+    }
 
-    for (const value of initialValues) {
-      super.add(value);
+    if (initialValues) {
+      for (const value of initialValues) {
+        if (this.isEmpty) this.leastRecentlyAdded = value;
+
+        super.add(value);
+
+        this.mostRecentlyAdded = value;
+      }
     }
   }
 
   override add(this: this, value: T): this {
     if (this.has(value)) return this;
 
+    if (this.isFull) return this.replace(value);
+
+    if (this.isEmpty) this.leastRecentlyAdded = value;
+
     super.add(value);
+    this.mostRecentlyAdded = value;
+    this.dispatchEvent('add', value);
 
-    const event: SetEvent<T> = {
-      operation: 'add',
-      value,
-    } as const;
+    return this.isFull ? this.dispatchEvent('full', value) : this;
+  }
 
-    this.dispatchEvent(event);
+  private replace(this: this, value: T): this {
+    const { replacementPolicy = 'FIFO' } = this.options;
 
-    return this;
+    switch (replacementPolicy) {
+      case 'FIFO': {
+        this.delete(this.leastRecentlyAdded as T);
+        break;
+      }
+
+      case 'LIFO': {
+        this.delete(this.mostRecentlyAdded as T);
+        break;
+      }
+
+      default: {
+        unreachable(replacementPolicy);
+      }
+    }
+
+    return this.add(value);
   }
 
   addEventListener = this.on;
@@ -137,26 +201,9 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     if (!this.has(value)) return this;
 
     super.delete(value);
+    this.dispatchEvent('delete', value);
 
-    const event: SetEvent<T> = {
-      operation: 'delete',
-      value,
-    } as const;
-
-    this.dispatchEvent(event);
-
-    if (this.size) return this;
-
-    const setEvent: SetEvent<T> = {
-      operation: 'empty',
-      value: event.value,
-    } as const;
-
-    for (const listener of this.operationListeners.empty) {
-      listener(setEvent, this);
-    }
-
-    return this;
+    return this.isEmpty ? this.dispatchEvent('empty', value) : this;
   }
 
   private deleteOneTimeListener(this: this, listener: SetEventListener<T> | SetEventListener<T>): this {
@@ -169,17 +216,15 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return this;
   }
 
-  private dispatchEvent(this: this, event: SetEvent<T>): this {
-    const { operation, value } = event;
+  private dispatchEvent(this: this, operation: SetOperation, value: T): this {
+    const operationListeners = this.operationListeners[operation];
 
-    const anyListeners = this.operationListeners[operation];
-
-    for (const listener of anyListeners) {
-      listener(event, this);
+    for (const listener of operationListeners) {
+      listener(value, operation, this);
 
       if (!this.oneTimeListeners.includes(listener)) continue;
 
-      anyListeners.delete(listener);
+      operationListeners.delete(listener);
       this.deleteOneTimeListener(listener);
     }
 
@@ -188,7 +233,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     if (!eventListeners) return this;
 
     for (const listener of eventListeners) {
-      listener(event, this);
+      listener(value, operation, this);
 
       if (!this.oneTimeListeners.includes(listener)) continue;
 
