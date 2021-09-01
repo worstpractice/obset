@@ -48,10 +48,6 @@ export type SetOperation =
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Scoped Globals *
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const ONCE: OnOptions = {
-  once: true,
-} as const;
-
 const DEFAULT_OPTIONS: ObSetOptions = {
   freeUnusedResources: true,
 } as const;
@@ -317,8 +313,8 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
   once(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: OnceOptions): this;
   once(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | OnceOptions, options?: OnceOptions): this {
     return options ?? typeof optionsOrListener === 'function'
-      ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, { ...options, ...ONCE })
-      : this.onOperation(operation, valueOrListener as SetEventListener<T>, { ...optionsOrListener, ...ONCE });
+      ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, { ...options, once: true })
+      : this.onOperation(operation, valueOrListener as SetEventListener<T>, { ...optionsOrListener, once: true });
   }
 
   private onOperation(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnOptions): this {
