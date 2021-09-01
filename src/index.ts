@@ -1,5 +1,6 @@
 import { swapPop } from 'swappop';
-import { every } from './utils/every';
+import { every } from './utils/every.js';
+import { isEmpty } from './utils/isEmpty.js';
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Interface *
@@ -247,7 +248,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
       operationListeners[operation] = undefined;
     }
 
-    if (Object.keys(operationListeners).length) return;
+    if (isEmpty(operationListeners)) return;
 
     // Free any values without sets
     this.valueListeners.delete(value);
