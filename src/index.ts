@@ -72,7 +72,6 @@ const SET_OPERATIONS = every<SetOperation>({
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Implementation *
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 export class ObSet<T> extends Set<T> {
   get isFull(): boolean {
     if (this.isEmpty) return false;
@@ -208,7 +207,7 @@ export class ObSet<T> extends Set<T> {
     return clone;
   }
 
-  /** Alias for `remove`. */ // @ts-expect-error the base method we are overriding isn't chainable (returning a boolean instead of `this`).
+  /** Alias for `remove`. */ // @ts-expect-error the `delete` method we are overriding isn't chainable (returning a `boolean` rather than `this`).
   override delete(this: this, value: T): this {
     if (!this.has(value)) return this;
 
