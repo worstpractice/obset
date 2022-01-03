@@ -88,14 +88,19 @@ export class ObSet<T> extends Set<T> {
     return !this.size;
   }
 
+  /** @internal */
   private leastRecentlyAdded?: T;
 
+  /** @internal */
   private mostRecentlyAdded?: T;
 
+  /** @internal */
   private readonly oneTimeListeners: SetEventListener<T>[] = [];
 
+  /** @internal */
   private readonly options: ObSetStoredOptions;
 
+  /** @internal */
   private readonly operationListeners: Listeners<T> = {
     add: new Set<SetEventListener<T>>(),
     empty: new Set<SetEventListener<T>>(),
@@ -103,8 +108,9 @@ export class ObSet<T> extends Set<T> {
     remove: new Set<SetEventListener<T>>(),
   } as const;
 
-  private readonly toJSON: (this: this, key?: string) => string | object;
+  readonly toJSON: (this: this, key?: string) => string | object;
 
+  /** @internal */
   private readonly valueListeners: Map<T, MaybeListeners<T>> = new Map<T, MaybeListeners<T>>();
 
   constructor(props?: never);
@@ -146,10 +152,12 @@ export class ObSet<T> extends Set<T> {
     return this.isFull ? this.dispatchEvent('full', value) : this;
   }
 
+  /** @internal */
   private defaultToJSON(this: this): readonly T[] {
     return [...this] as const;
   }
 
+  /** @internal */
   private replace(this: this, value: T): this {
     const { replacementPolicy } = this.options;
 
@@ -200,7 +208,7 @@ export class ObSet<T> extends Set<T> {
     return clone;
   }
 
-  // @ts-expect-error the base method we are overriding isn't chainable (returning a boolean instead of `this`).
+  /** Alias for `remove`. */ // @ts-expect-error the base method we are overriding isn't chainable (returning a boolean instead of `this`).
   override delete(this: this, value: T): this {
     if (!this.has(value)) return this;
 
@@ -210,6 +218,7 @@ export class ObSet<T> extends Set<T> {
     return this.isEmpty ? this.dispatchEvent('empty', value) : this;
   }
 
+  /** @internal */
   private deleteOneTimeListener(this: this, listener: SetEventListener<T> | SetEventListener<T>): this {
     const listenerIndex = this.oneTimeListeners.indexOf(listener);
 
@@ -220,6 +229,7 @@ export class ObSet<T> extends Set<T> {
     return this;
   }
 
+  /** @internal */
   private dispatchEvent(this: this, operation: SetOperation, value: T): this {
     const operationListeners = this.operationListeners[operation];
 
@@ -286,6 +296,7 @@ export class ObSet<T> extends Set<T> {
     return undefined;
   }
 
+  /** @internal */
   private findOperationsWithoutListenersIn(this: this, operationListeners: MaybeListeners<T>): readonly SetOperation[] {
     const operationSetPairs = Object.entries(operationListeners);
 
@@ -303,6 +314,7 @@ export class ObSet<T> extends Set<T> {
   /** NOTE: keeps memory usage as low as possible, at the cost of some extra cleanup work.
    *
    * See: https://en.wikipedia.org/wiki/Space%E2%80%93time_tradeoff */
+  /** @internal */
   private freeUnusedResourcesIn(this: this, operationListeners: MaybeListeners<T>, value: T): void {
     const withoutListeners: readonly SetOperation[] = this.findOperationsWithoutListenersIn(operationListeners);
 
@@ -337,6 +349,7 @@ export class ObSet<T> extends Set<T> {
     return false;
   }
 
+  /** @internal */
   private initEventListenersFor(this: this, operation: SetOperation, operationListeners: MaybeListeners<T>): Set<SetEventListener<T>> {
     const eventListeners = new Set<SetEventListener<T>>();
 
@@ -345,6 +358,7 @@ export class ObSet<T> extends Set<T> {
     return eventListeners;
   }
 
+  /** @internal */
   private initOperationListenersFor(this: this, value: T): MaybeListeners<T> {
     const operationListeners: MaybeListeners<T> = {} as const;
 
@@ -365,6 +379,7 @@ export class ObSet<T> extends Set<T> {
     return mapped;
   }
 
+  /** Alias for `addEventListener`. */
   on(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnOptions): this;
   on(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: OnOptions): this;
   on(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | OnOptions, options?: OnOptions): this {
@@ -373,6 +388,7 @@ export class ObSet<T> extends Set<T> {
       : this.onOperation(operation, valueOrListener as SetEventListener<T>, optionsOrListener);
   }
 
+  /** Alias for `addEventListener` with the `once` option set to `true`. */
   once(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnceOptions): this;
   once(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: OnceOptions): this;
   once(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | OnceOptions, options?: OnceOptions): this {
@@ -381,6 +397,7 @@ export class ObSet<T> extends Set<T> {
       : this.onOperation(operation, valueOrListener as SetEventListener<T>, { ...optionsOrListener, once: true } as const);
   }
 
+  /** @internal */
   private onOperation(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnOptions): this {
     this.operationListeners[operation].add(listener);
 
@@ -389,6 +406,7 @@ export class ObSet<T> extends Set<T> {
     return this;
   }
 
+  /** @internal */
   private onValue(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: OnOptions): this {
     const operationListeners = this.valueListeners.get(value) ?? this.initOperationListenersFor(value);
 
@@ -401,11 +419,13 @@ export class ObSet<T> extends Set<T> {
     return this;
   }
 
+  /** Alias for `delete`. */
   remove(this: this, value: T): this {
     return this.delete(value);
   }
 
-  removeEventListener(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>): this {
+  /** Alias for `removeEventListener`. */
+  off(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>): this {
     const operationListeners = this.valueListeners.get(value);
 
     if (!operationListeners) return this;
