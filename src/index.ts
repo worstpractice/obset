@@ -51,14 +51,12 @@ export type SetOperation =
   | 'full'
   | 'remove'
 
-export type ObSetOverrides<T> = {
-  readonly toJSON?: (this: ObSet<T>, key?: string) => string | object;
-};
-
 export type ObSetProps<T> = {
   readonly initialValues?: Iterable<T>;
   readonly options?: ObSetOptions;
-  readonly overrides?: ObSetOverrides<T>;
+  readonly overrides?: {
+    readonly toJSON?: (this: ObSet<T>, key?: string) => string | object;
+  };
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -76,10 +74,6 @@ const SET_OPERATIONS = every<SetOperation>({
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export class ObSet<T> extends Set<T> {
-  static createOverride<T, U extends string | object, O extends (this: ObSet<T>, key?: string) => U>(this: void, override: O): O {
-    return override;
-  }
-
   get isFull(): boolean {
     if (this.isEmpty) return false;
 
@@ -109,7 +103,7 @@ export class ObSet<T> extends Set<T> {
     remove: new Set<SetEventListener<T>>(),
   } as const;
 
-  readonly toJSON: (this: this, key?: string) => string | object;
+  private readonly toJSON: (this: this, key?: string) => string | object;
 
   private readonly valueListeners: Map<T, MaybeListeners<T>> = new Map<T, MaybeListeners<T>>();
 
