@@ -6,8 +6,6 @@ import { unreachable } from './utils/unreachable.js';
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Interface *
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-export type From<T> = (this: void, value: T, index: number, obset: ObSet<T>) => any;
-
 export type Listeners<T> = {
   readonly [key in SetOperation]: Set<SetEventListener<T>>;
 };
@@ -29,79 +27,63 @@ export type ObSetOptions = {
     }
 );
 
+type ObSetStoredOptions = {
+  readonly [key in keyof ObSetOptions]-?: ObSetOptions[key];
+};
+
 export type OnceOptions = Omit<OnOptions, 'once'>;
 
 export type OnOptions = {
   readonly once?: boolean;
 };
 
-export type Predicate<T> = (this: void, value: T, index: number, obset: ObSet<T>) => boolean;
-
 // prettier-ignore
 export type ReplacementPolicy =
   | 'FIFO'
   | 'LIFO'
-;
 
 export type SetEventListener<T> = (this: void, value: T, operation: SetOperation, obset: ObSet<T>) => void;
-
-export interface SetEventTarget<T> {
-  readonly addEventListener: (this: this, type: SetOperation, value: T, listener: SetEventListener<T>) => this;
-  readonly removeEventListener: (this: this, type: SetOperation, value: T, listener: SetEventListener<T>) => this;
-}
 
 // prettier-ignore
 export type SetOperation =
   | 'add'
-  | 'delete'
   | 'empty'
   | 'full'
-;
+  | 'remove'
+
+export type ObSetOverrides<T> = {
+  readonly toJSON?: (this: ObSet<T>, key?: string) => string | object;
+};
+
+export type ObSetProps<T> = {
+  readonly initialValues?: Iterable<T>;
+  readonly options?: ObSetOptions;
+  readonly overrides?: ObSetOverrides<T>;
+};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Scoped Globals *
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-const DEFAULT_OPTIONS: ObSetOptions = {
-  capacity: 0,
-  freeUnusedResources: true,
-  replacementPolicy: 'FIFO',
-} as const;
-
 const SET_OPERATIONS = every<SetOperation>({
-  add: '',
-  delete: '',
-  empty: '',
-  full: '',
-});
-
-const NONE: unique symbol = Symbol('none');
+  add: true,
+  empty: true,
+  full: true,
+  remove: true,
+} as const);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // * Implementation *
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
-  private leastRecentlyAdded?: T;
-
-  private mostRecentlyAdded?: T;
-
-  private readonly oneTimeListeners: SetEventListener<T>[] = [];
-
-  private readonly options: ObSetOptions = DEFAULT_OPTIONS;
-
-  private readonly operationListeners: Listeners<T> = {
-    add: new Set<SetEventListener<T>>(),
-    delete: new Set<SetEventListener<T>>(),
-    empty: new Set<SetEventListener<T>>(),
-    full: new Set<SetEventListener<T>>(),
-  } as const;
-
-  private readonly valueListeners: Map<T, MaybeListeners<T>> = new Map<T, MaybeListeners<T>>();
+export class ObSet<T> extends Set<T> {
+  static createOverride<T, U extends string | object, O extends (this: ObSet<T>, key?: string) => U>(this: void, override: O): O {
+    return override;
+  }
 
   get isFull(): boolean {
     if (this.isEmpty) return false;
 
-    const { capacity = 0 } = this.options;
+    const { capacity } = this.options;
 
     if (!capacity) return false;
 
@@ -112,12 +94,34 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return !this.size;
   }
 
-  constructor(initialValues?: Iterable<T>, options?: ObSetOptions) {
+  private leastRecentlyAdded?: T;
+
+  private mostRecentlyAdded?: T;
+
+  private readonly oneTimeListeners: SetEventListener<T>[] = [];
+
+  private readonly options: ObSetStoredOptions;
+
+  private readonly operationListeners: Listeners<T> = {
+    add: new Set<SetEventListener<T>>(),
+    empty: new Set<SetEventListener<T>>(),
+    full: new Set<SetEventListener<T>>(),
+    remove: new Set<SetEventListener<T>>(),
+  } as const;
+
+  readonly toJSON: (this: this, key?: string) => string | object;
+
+  private readonly valueListeners: Map<T, MaybeListeners<T>> = new Map<T, MaybeListeners<T>>();
+
+  constructor({ initialValues, overrides, options }: ObSetProps<T> = {}) {
     super(); /** NOTE: passing `initialValues` directly to `super()` results in an infinite loop. (＃°Д°) */
 
-    if (options) {
-      this.options = options;
-    }
+    this.options = {
+      capacity: Number.POSITIVE_INFINITY,
+      freeUnusedResources: true,
+      replacementPolicy: 'FIFO',
+      ...options,
+    } as const;
 
     if (initialValues) {
       for (const value of initialValues) {
@@ -128,6 +132,8 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
         this.mostRecentlyAdded = value;
       }
     }
+
+    this.toJSON = overrides?.toJSON ?? this.defaultToJSON;
   }
 
   override add(this: this, value: T): this {
@@ -144,8 +150,12 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return this.isFull ? this.dispatchEvent('full', value) : this;
   }
 
+  private defaultToJSON(this: this): readonly T[] {
+    return [...this] as const;
+  }
+
   private replace(this: this, value: T): this {
-    const { replacementPolicy = 'FIFO' } = this.options;
+    const { replacementPolicy } = this.options;
 
     switch (replacementPolicy) {
       case 'FIFO': {
@@ -166,8 +176,6 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return this.add(value);
   }
 
-  addEventListener = this.on;
-
   override clear(this: this): this {
     for (const value of this) {
       this.delete(value);
@@ -177,7 +185,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
   }
 
   clone(this: this): ObSet<T> {
-    const clone = new ObSet<T>(this, this.options);
+    const clone = new ObSet<T>({ initialValues: this, options: this.options });
 
     for (const operation of SET_OPERATIONS) {
       for (const listener of this.operationListeners[operation]) {
@@ -201,7 +209,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     if (!this.has(value)) return this;
 
     super.delete(value);
-    this.dispatchEvent('delete', value);
+    this.dispatchEvent('remove', value);
 
     return this.isEmpty ? this.dispatchEvent('empty', value) : this;
   }
@@ -244,7 +252,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return this;
   }
 
-  every(this: this, predicate: (this: void, value: T, index: number, set: this) => boolean): boolean {
+  every(this: this, predicate: (this: void, value: T, index: number, obset: this) => boolean): boolean {
     let i = 0;
 
     for (const value of this) {
@@ -254,25 +262,39 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return true;
   }
 
-  filter<U extends T>(this: this, predicate: (this: void, value: T, index: number, set: this) => value is U): readonly U[];
-  filter(this: this, predicate: (this: void, value: T, index: number, set: this) => boolean): readonly T[];
-  filter<U extends T>(this: this, predicate: (this: void, value: T, index: number, set: this) => boolean): readonly T[] | readonly U[] {
+  filter<U extends T>(this: this, predicate: (this: void, value: T, index: number, obset: this) => value is U): readonly U[];
+  filter(this: this, predicate: (this: void, value: T, index: number, obset: this) => boolean): readonly T[];
+  filter<U extends T>(this: this, predicate: (this: void, value: T, index: number, obset: this) => boolean): readonly T[] | readonly U[] {
     const filtered: T[] = [];
 
     let i = 0;
 
     for (const value of this) {
-      if (predicate(value, i++, this)) filtered.push(value);
+      if (predicate(value, i++, this)) {
+        filtered.push(value);
+      }
     }
 
     return filtered;
+  }
+
+  find<U extends T>(this: this, predicate: (this: void, value: T, index: number, obset: this) => value is U): U | undefined;
+  find(this: this, predicate: (this: void, value: T, index: number, obset: this) => boolean): T | undefined;
+  find<U extends T>(this: this, predicate: (this: void, value: T, index: number, obset: this) => boolean): T | U | undefined {
+    let i = 0;
+
+    for (const value of this) {
+      if (predicate(value, i++, this)) return value;
+    }
+
+    return undefined;
   }
 
   private findOperationsWithoutListenersIn(this: this, operationListeners: MaybeListeners<T>): readonly SetOperation[] {
     const operationSetPairs = Object.entries(operationListeners);
 
     const operationsWithoutListeners: SetOperation[] = [];
-
+    [].find;
     for (const [operation, { size }] of operationSetPairs) {
       if (size) continue;
 
@@ -301,7 +323,9 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
 
   hasEvery(this: this, ...values: readonly T[]): boolean {
     for (const value of values) {
-      if (!this.has(value)) return false;
+      if (!this.has(value)) {
+        return false;
+      }
     }
 
     return true;
@@ -309,7 +333,9 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
 
   hasSome(this: this, ...values: readonly T[]): boolean {
     for (const value of values) {
-      if (this.has(value)) return true;
+      if (this.has(value)) {
+        return true;
+      }
     }
 
     return false;
@@ -331,8 +357,8 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return operationListeners;
   }
 
-  map<U extends From<T>, V extends ReturnType<U>>(this: this, into: U): readonly V[] {
-    const mapped: V[] = [];
+  map<U>(this: this, into: (this: void, value: T, index: number, obset: this) => U): readonly U[] {
+    const mapped: U[] = [];
 
     let i = 0;
 
@@ -355,8 +381,8 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
   once(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>, options?: OnceOptions): this;
   once(this: this, operation: SetOperation, valueOrListener: T | SetEventListener<T>, optionsOrListener?: SetEventListener<T> | OnceOptions, options?: OnceOptions): this {
     return options ?? typeof optionsOrListener === 'function'
-      ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, { ...options, once: true })
-      : this.onOperation(operation, valueOrListener as SetEventListener<T>, { ...optionsOrListener, once: true });
+      ? this.onValue(operation, valueOrListener as T, optionsOrListener as SetEventListener<T>, { ...options, once: true } as const)
+      : this.onOperation(operation, valueOrListener as SetEventListener<T>, { ...optionsOrListener, once: true } as const);
   }
 
   private onOperation(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnOptions): this {
@@ -379,6 +405,10 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return this;
   }
 
+  remove(this: this, value: T): this {
+    return this.delete(value);
+  }
+
   removeEventListener(this: this, operation: SetOperation, value: T, listener: SetEventListener<T>): this {
     const operationListeners = this.valueListeners.get(value);
 
@@ -396,7 +426,7 @@ export class ObSet<T> extends Set<T> implements SetEventTarget<T> {
     return this;
   }
 
-  some(this: this, predicate: Predicate<T>): boolean {
+  some(this: this, predicate: (this: void, value: T, index: number, obset: this) => boolean): boolean {
     let i = 0;
 
     for (const value of this) {

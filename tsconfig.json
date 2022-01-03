@@ -32,7 +32,7 @@
     "noUnusedParameters": false,
     "outDir": "dist",
     "pretty": true,
-    "removeComments": true,
+    "removeComments": false,
     "resolveJsonModule": false, // ESM doesn't yet support JSON modules.
     "skipDefaultLibCheck": false,
     "skipLibCheck": true,
