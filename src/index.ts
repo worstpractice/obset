@@ -113,6 +113,7 @@ export class ObSet<T> extends Set<T> {
 
   private readonly valueListeners: Map<T, MaybeListeners<T>> = new Map<T, MaybeListeners<T>>();
 
+  constructor(props: ObSetProps<T>);
   constructor({ initialValues, overrides, options }: ObSetProps<T> = {}) {
     super(); /** NOTE: passing `initialValues` directly to `super()` results in an infinite loop. (＃°Д°) */
 
