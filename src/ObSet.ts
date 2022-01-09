@@ -1,8 +1,35 @@
 import { swapPop } from 'swappop';
 import { ArrayMap } from './ArrayMap.js';
-import type { Listeners, MaybeListeners, OnceOptions, OnOptions, SetEventListener, SetOperation } from './typings/ObSet.d';
 import { isEmpty } from './utils/isEmpty.js';
 
+/////////////////////////////////////////////////////////////////////////////
+// * Interface *
+/////////////////////////////////////////////////////////////////////////////
+export type Listeners<T> = {
+  readonly [key in SetOperation]: Set<SetEventListener<T>>;
+};
+
+export type MaybeListeners<T> = {
+  [key in SetOperation]?: Set<SetEventListener<T>>;
+};
+
+export type OnceOptions = Omit<OnOptions, 'once'>;
+
+export type OnOptions = {
+  readonly once?: boolean;
+};
+
+export type SetEventListener<T> = (this: void, value: T, operation: SetOperation, obset: ObSet<T>) => void;
+
+// prettier-ignore
+export type SetOperation =
+  | 'add'
+  | 'empty'
+  | 'remove'
+
+/////////////////////////////////////////////////////////////////////////////
+// * Implementation *
+/////////////////////////////////////////////////////////////////////////////
 export class ObSet<T> {
   get internalArray(): readonly T[] {
     return this.store.internalArray;
