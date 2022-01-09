@@ -1,22 +1,22 @@
 {
   "compilerOptions": {
-    "allowSyntheticDefaultImports": true,
-    "allowUnusedLabels": true,
+    "allowSyntheticDefaultImports": false,
+    "allowUnusedLabels": false,
     "assumeChangesOnlyAffectDirectDependencies": false,
     "baseUrl": ".",
     "declaration": true,
     "disableSizeLimit": true,
-    "downlevelIteration": true,
-    "esModuleInterop": true,
+    "downlevelIteration": false,
+    "esModuleInterop": false,
     "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
-    "importHelpers": true,
+    "importHelpers": false,
     "importsNotUsedAsValues": "error",
     "isolatedModules": true,
-    "module": "ES2020",
+    "module": "ESNext",
     "moduleResolution": "node",
     "newLine": "lf",
-    "noEmitHelpers": false,
+    "noEmitHelpers": true,
     "noEmitOnError": true,
     "noErrorTruncation": true,
     "noFallthroughCasesInSwitch": true,
@@ -33,9 +33,8 @@
     "outDir": "dist",
     "pretty": true,
     "removeComments": false,
-    "resolveJsonModule": false, // ESM doesn't yet support JSON modules.
     "skipDefaultLibCheck": false,
-    "skipLibCheck": true,
+    "skipLibCheck": false,
     "strict": true,
     "strictBindCallApply": true,
     "strictFunctionTypes": true,
@@ -44,14 +43,10 @@
     "stripInternal": true,
     "suppressExcessPropertyErrors": false,
     "suppressImplicitAnyIndexErrors": false,
-    "target": "ES2019", // Node.js 12
+    "target": "ESNext",
     "useDefineForClassFields": true,
     "useUnknownInCatchVariables": true
   },
-  "exclude": [
-    "**/node_modules",
-    "**/.*/"
-  ],
   "include": [
     "src"
   ]

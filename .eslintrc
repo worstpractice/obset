@@ -8,7 +8,7 @@
   ],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
-    "ecmaVersion": 2019, // Node 12
+    "ecmaVersion": 2022,
     "project": "./tsconfig.json",
     "sourceType": "module",
     "tsconfigRootDir": "."
@@ -62,7 +62,7 @@
     "@typescript-eslint/no-unused-vars": "off",
     "@typescript-eslint/no-var-requires": "off",
     "@typescript-eslint/prefer-enum-initializers": "warn",
-    "@typescript-eslint/prefer-for-of": "warn",
+    "@typescript-eslint/prefer-for-of": "off",
     "@typescript-eslint/prefer-function-type": "warn",
     "@typescript-eslint/prefer-includes": "warn",
     "@typescript-eslint/prefer-literal-enum-member": "warn",
@@ -308,6 +308,7 @@
     "unicorn/no-array-callback-reference": "off",
     "unicorn/no-array-for-each": "off",
     "unicorn/no-array-method-this-argument": "off",
+    "unicorn/no-for-loop": "off",
     "unicorn/no-nested-ternary": "off",
     "unicorn/no-null": "off",
     "unicorn/no-zero-fractions": "off",
