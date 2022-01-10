@@ -1,4 +1,3 @@
-import { swapPop } from 'swappop';
 import { ArrayMap } from './ArrayMap.js';
 import { isEmpty } from './utils/isEmpty.js';
 
@@ -35,8 +34,12 @@ export class ObSet<T> {
     return this.store.internalArray;
   }
 
+  get isEmpty(): boolean {
+    return !this.store.size;
+  }
+
   /** @internal */
-  private readonly oneTimeListeners: SetEventListener<T>[] = [];
+  private readonly oneTimeListeners: Set<SetEventListener<T>> = new Set<SetEventListener<T>>();
 
   /** @internal */
   private readonly operationListeners: Listeners<T> = {
@@ -66,22 +69,14 @@ export class ObSet<T> {
   }
 
   /** @internal */
-  private deleteOneTimeListener(this: this, listener: SetEventListener<T>): this {
-    for (let i = 0; i < this.oneTimeListeners.length; i++) {
-      if (this.oneTimeListeners[i] !== listener) continue;
-
-      swapPop(this.oneTimeListeners, i);
-
-      return this;
-    }
-
-    return this;
-  }
-
-  /** @internal */
   private notifyListeners(this: this, listeners: Set<SetEventListener<T>>, operation: SetOperation, value: T): this {
     for (const listener of listeners) {
       listener(value, operation, this);
+
+      if (!this.oneTimeListeners.has(listener)) continue;
+
+      listeners.delete(listener);
+      this.oneTimeListeners.delete(listener);
     }
 
     return this;
@@ -193,32 +188,14 @@ export class ObSet<T> {
   }
 
   /** @internal */
-  private registerOneTimeListener(this: this, listener: SetEventListener<T>, listeners: Set<SetEventListener<T>>): this {
-    const oneTimeListener = (value: T, operation: SetOperation, obset: ObSet<T>): void => {
-      listener(value, operation, obset);
+  private onOperation(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnOptions): this {
+    const operationListeners = this.operationListeners[operation];
 
-      listeners.delete(listener);
+    operationListeners.add(listener);
 
-      for (let i = 0; i < this.oneTimeListeners.length; i++) {
-        if (this.oneTimeListeners[i] === listener) continue;
-
-        swapPop(this.oneTimeListeners, i);
-      }
-    };
-
-    listeners.add(oneTimeListener);
-    this.oneTimeListeners.push(oneTimeListener);
+    if (options?.once) this.oneTimeListeners.add(listener);
 
     return this;
-  }
-
-  /** @internal */
-  private onOperation(this: this, operation: SetOperation, listener: SetEventListener<T>, options?: OnOptions): this {
-    const listeners = this.operationListeners[operation];
-
-    return options?.once //
-      ? this.registerOneTimeListener(listener, listeners)
-      : listeners.add(listener) && this;
   }
 
   /** @internal */
@@ -227,9 +204,11 @@ export class ObSet<T> {
 
     const eventListeners = operationListeners[operation] ?? this.initEventListenersFor(operation, operationListeners);
 
-    return options?.once //
-      ? this.registerOneTimeListener(listener, eventListeners)
-      : eventListeners.add(listener) && this;
+    eventListeners.add(listener);
+
+    if (options?.once) this.oneTimeListeners.add(listener);
+
+    return this;
   }
 
   /** Alias for `removeEventListener`. */
@@ -243,7 +222,7 @@ export class ObSet<T> {
     if (!eventListeners) return this;
 
     eventListeners.delete(listener);
-    this.deleteOneTimeListener(listener);
+    this.oneTimeListeners.delete(listener);
 
     return this.freeUnusedResourcesIn(operationListeners, value);
   }
